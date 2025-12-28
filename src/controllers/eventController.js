@@ -1,4 +1,5 @@
 import Event from "../models/Event.js";
+import SavedEvent from "../models/SavedEvent.js";
 
 // @desc    Get all events
 // @route   GET /api/events
@@ -6,6 +7,11 @@ import Event from "../models/Event.js";
 export const getAllEvents = async (req, res) => {
   try {
     const { category, location, search } = req.query;
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(
+      Math.max(parseInt(req.query.limit, 10) || 10, 1),
+      50
+    );
 
     let query = {};
 
@@ -24,13 +30,20 @@ export const getAllEvents = async (req, res) => {
       query.name = { $regex: search, $options: "i" };
     }
 
+    const total = await Event.countDocuments(query);
+
     const events = await Event.find(query)
       .populate("organizer", "name email")
-      .sort({ date: 1 });
+      .sort({ date: 1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
 
     res.json({
       success: true,
       count: events.length,
+      total,
+      page,
+      pages: Math.ceil(total / limit),
       data: events,
     });
   } catch (error) {
@@ -187,6 +200,50 @@ export const getUserEvents = async (req, res) => {
       success: true,
       count: events.length,
       data: events,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// @desc    Get categories list
+// @route   GET /api/events/categories
+// @access  Public
+export const getCategories = async (_req, res) => {
+  try {
+    const categories = Event.schema.path("category").enumValues || [];
+
+    res.json({
+      success: true,
+      data: categories,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// @desc    Get user stats (created count, saved count)
+// @route   GET /api/events/user/stats
+// @access  Private
+export const getUserStats = async (req, res) => {
+  try {
+    const [createdCount, savedCount] = await Promise.all([
+      Event.countDocuments({ organizer: req.user.id }),
+      SavedEvent.countDocuments({ user: req.user.id }),
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        createdCount,
+        savedCount,
+      },
     });
   } catch (error) {
     res.status(500).json({

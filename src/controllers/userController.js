@@ -12,12 +12,15 @@ const generateToken = (id) => {
 const sendTokenResponse = (user, statusCode, res) => {
   const token = generateToken(user._id);
 
+  const isProd = process.env.NODE_ENV === "production";
+
   const options = {
     expires: new Date(
       Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
     ),
     httpOnly: true,
-    sameSite: "strict",
+    sameSite: isProd ? "none" : "lax",
+    secure: isProd,
   };
 
   res
@@ -56,15 +59,7 @@ export const register = async (req, res) => {
       password,
     });
 
-    res.status(201).json({
-      success: true,
-      message: "User registered successfully. Please login.",
-      data: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-      },
-    });
+    sendTokenResponse(user, 201, res);
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -104,9 +99,12 @@ export const login = async (req, res) => {
 // @access  Public
 export const logout = async (req, res) => {
   try {
+    const isProd = process.env.NODE_ENV === "production";
     res.cookie("token", "none", {
       expires: new Date(Date.now() + 10 * 1000), // 10 seconds
       httpOnly: true,
+      sameSite: isProd ? "none" : "lax",
+      secure: isProd,
     });
 
     res.json({
