@@ -1,6 +1,11 @@
 import Event from "../models/Event.js";
 import SavedEvent from "../models/SavedEvent.js";
 
+// Export categories for use in routes
+export const getEventCategories = () => {
+  return Event.schema.path("category").enumValues || [];
+};
+
 // @desc    Get all events
 // @route   GET /api/events
 // @access  Public
@@ -90,10 +95,33 @@ export const createEvent = async (req, res) => {
   try {
     const { name, description, date, time, location, category } = req.body;
 
+    // Normalize date to ensure consistent UTC interpretation
+    const dateParts = date.split("-");
+    const normalizedDate = `${dateParts[0]}-${dateParts[1].padStart(
+      2,
+      "0"
+    )}-${dateParts[2].padStart(2, "0")}`;
+
+    // Combine date and time to create event datetime (ensure UTC)
+    const [hours, minutes] = time.split(":").map(Number);
+    const eventDateTime = new Date(
+      `${normalizedDate}T${hours.toString().padStart(2, "0")}:${minutes
+        .toString()
+        .padStart(2, "0")}:00.000Z`
+    );
+
+    // Check if event is in the future
+    if (eventDateTime <= new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: "Event must be scheduled in the future",
+      });
+    }
+
     const event = await Event.create({
       name,
       description,
-      date,
+      date: normalizedDate, // Store normalized date
       time,
       location,
       category,
@@ -132,6 +160,44 @@ export const updateEvent = async (req, res) => {
         success: false,
         message: "Not authorized to update this event",
       });
+    }
+
+    // If updating date or time, validate the combined datetime is in the future
+    if (req.body.date || req.body.time) {
+      let normalizedDate, eventTime;
+
+      if (req.body.date) {
+        // Normalize the new date
+        const dateParts = req.body.date.split("-");
+        normalizedDate = `${dateParts[0]}-${dateParts[1].padStart(
+          2,
+          "0"
+        )}-${dateParts[2].padStart(2, "0")}`;
+        eventTime = req.body.time || event.time;
+      } else {
+        // Use existing normalized date
+        normalizedDate = event.date;
+        eventTime = req.body.time;
+      }
+
+      const [hours, minutes] = eventTime.split(":").map(Number);
+      const eventDateTime = new Date(
+        `${normalizedDate}T${hours.toString().padStart(2, "0")}:${minutes
+          .toString()
+          .padStart(2, "0")}:00.000Z`
+      );
+
+      if (eventDateTime <= new Date()) {
+        return res.status(400).json({
+          success: false,
+          message: "Event must be scheduled in the future",
+        });
+      }
+
+      // Normalize date in the request body before updating
+      if (req.body.date) {
+        req.body.date = normalizedDate;
+      }
     }
 
     event = await Event.findByIdAndUpdate(req.params.id, req.body, {

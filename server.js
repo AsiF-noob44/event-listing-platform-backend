@@ -8,7 +8,7 @@ import morgan from "morgan";
 import rateLimit from "express-rate-limit";
 dotenv.config();
 
-import authRoutes from "./src/routes/userRoutes.js";
+import userRoutes from "./src/routes/userRoutes.js";
 import eventRoutes from "./src/routes/eventRoutes.js";
 import savedEventRoutes from "./src/routes/savedEventRoutes.js";
 
@@ -41,7 +41,7 @@ app.use(
 connectDB();
 
 // Routes
-app.use("/api/auth", authRoutes);
+app.use("/api/auth", userRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/saved", savedEventRoutes);
 

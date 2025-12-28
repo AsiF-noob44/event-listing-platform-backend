@@ -5,10 +5,14 @@ const eventSchema = new mongoose.Schema(
     name: {
       type: String,
       required: true,
+      trim: true,
+      maxlength: 100,
     },
     description: {
       type: String,
       required: true,
+      trim: true,
+      maxlength: 1000,
     },
     date: {
       type: Date,
@@ -17,10 +21,20 @@ const eventSchema = new mongoose.Schema(
     time: {
       type: String,
       required: true,
+      validate: {
+        validator: function (value) {
+          // Validate HH:MM format (24-hour)
+          const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+          return timeRegex.test(value);
+        },
+        message: "Time must be in HH:MM format (24-hour)",
+      },
     },
     location: {
       type: String,
       required: true,
+      trim: true,
+      maxlength: 200,
     },
     category: {
       type: String,
@@ -35,6 +49,8 @@ const eventSchema = new mongoose.Schema(
         "Health",
         "Education",
         "Lifestyle",
+        "Environment",
+        "Entertainment",
         "Other",
       ],
     },
