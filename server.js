@@ -15,7 +15,6 @@ import savedEventRoutes from "./src/routes/savedEventRoutes.js";
 const app = express();
 const PORT = process.env.PORT || 8000;
 
-// Support multiple allowed origins via comma-separated env
 const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173")
   .split(",")
   .map((o) => o.trim())
@@ -47,7 +46,6 @@ app.use(
       // Allow requests with no origin (like mobile apps or Postman)
       if (!origin) return callback(null, true);
 
-      // Check if origin matches any allowed origins (exact match or with/without trailing slash)
       const isAllowed = allowedOrigins.some((allowedOrigin) => {
         const normalizedAllowed = allowedOrigin.replace(/\/$/, "");
         const normalizedOrigin = origin.replace(/\/$/, "");
