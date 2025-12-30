@@ -11,7 +11,7 @@ export const getEventCategories = () => {
 // @access  Public
 export const getAllEvents = async (req, res) => {
   try {
-    const { category, location, search } = req.query;
+    const { category, location, search, includePast } = req.query;
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.min(
       Math.max(parseInt(req.query.limit, 10) || 10, 1),
@@ -33,6 +33,11 @@ export const getAllEvents = async (req, res) => {
     // Search by name
     if (search) {
       query.name = { $regex: search, $options: "i" };
+    }
+
+    // Exclude past events by default
+    if (includePast !== "true") {
+      query.date = { $gte: new Date().setHours(0, 0, 0, 0) };
     }
 
     const total = await Event.countDocuments(query);
@@ -258,14 +263,24 @@ export const deleteEvent = async (req, res) => {
 // @access  Private
 export const getUserEvents = async (req, res) => {
   try {
-    const events = await Event.find({ organizer: req.user.id }).sort({
-      createdAt: -1,
+    const allEvents = await Event.find({ organizer: req.user.id }).sort({
+      date: 1,
     });
+
+    const now = new Date().setHours(0, 0, 0, 0);
+
+    const upcomingEvents = allEvents.filter(
+      (event) => new Date(event.date) >= now
+    );
+    const pastEvents = allEvents.filter((event) => new Date(event.date) < now);
 
     res.json({
       success: true,
-      count: events.length,
-      data: events,
+      count: allEvents.length,
+      data: {
+        upcoming: upcomingEvents,
+        past: pastEvents,
+      },
     });
   } catch (error) {
     res.status(500).json({
@@ -299,15 +314,22 @@ export const getCategories = async (_req, res) => {
 // @access  Private
 export const getUserStats = async (req, res) => {
   try {
-    const [createdCount, savedCount] = await Promise.all([
-      Event.countDocuments({ organizer: req.user.id }),
-      SavedEvent.countDocuments({ user: req.user.id }),
-    ]);
+    const now = new Date().setHours(0, 0, 0, 0);
+
+    const [totalCreated, upcomingCreated, pastCreated, savedCount] =
+      await Promise.all([
+        Event.countDocuments({ organizer: req.user.id }),
+        Event.countDocuments({ organizer: req.user.id, date: { $gte: now } }),
+        Event.countDocuments({ organizer: req.user.id, date: { $lt: now } }),
+        SavedEvent.countDocuments({ user: req.user.id }),
+      ]);
 
     res.json({
       success: true,
       data: {
-        createdCount,
+        createdCount: totalCreated,
+        upcomingCount: upcomingCreated,
+        pastCount: pastCreated,
         savedCount,
       },
     });

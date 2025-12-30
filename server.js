@@ -44,8 +44,6 @@ app.use(express.urlencoded({ extended: true }));
 app.use(
   cors({
     origin: (origin, callback) => {
-      console.log(`Request from origin: ${origin}`);
-
       // Allow requests with no origin (like mobile apps or Postman)
       if (!origin) return callback(null, true);
 
@@ -56,13 +54,8 @@ app.use(
         return normalizedAllowed === normalizedOrigin;
       });
 
-      if (isAllowed) {
-        console.log(`CORS allowed for: ${origin}`);
-        return callback(null, true);
-      }
+      if (isAllowed) return callback(null, true);
 
-      console.error(`CORS blocked origin: ${origin}`);
-      console.error(`Allowed origins: ${allowedOrigins.join(", ")}`);
       return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
@@ -81,22 +74,8 @@ app.use("/api/auth", userRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/saved", savedEventRoutes);
 
-// Health check endpoint
 app.get("/", (req, res) => {
-  res.json({
-    status: "API is running",
-    environment: process.env.NODE_ENV,
-    allowedOrigins: allowedOrigins,
-  });
-});
-
-// API health check
-app.get("/api", (req, res) => {
-  res.json({
-    status: "success",
-    message: "Event Listing API",
-    version: "1.0.0",
-  });
+  res.json({ status: "API is running" });
 });
 
 app.listen(PORT, () => {

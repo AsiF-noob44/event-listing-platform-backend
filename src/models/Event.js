@@ -63,7 +63,21 @@ const eventSchema = new mongoose.Schema(
   {
     timestamps: true,
     versionKey: false,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
 );
+
+// Virtual field to check if event is past
+eventSchema.virtual("isPast").get(function () {
+  const eventDateTime = new Date(this.date);
+  const [hours, minutes] = this.time.split(":");
+  eventDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+  return eventDateTime < new Date();
+});
+
+// Index for better query performance
+eventSchema.index({ date: 1 });
+eventSchema.index({ category: 1, date: 1 });
 
 export default mongoose.model("Event", eventSchema);

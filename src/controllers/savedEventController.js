@@ -81,23 +81,7 @@ export const unsaveEvent = async (req, res) => {
 // @desc    Get all saved events for user
 // @route   GET /api/saved
 // @access  Private
-export const getSavedEvents = async (req, res) => {
-  try {
-    const savedEvents = await SavedEvent.find({ user: req.user.id })
-      .populate({
-        path: "event",
-        populate: { path: "organizer", select: "name email" },
-      })
-      .sort({ savedAt: -1 });
-
-    res.json({
-      success: true,
-      count: savedEvents.length,
-      data: savedEvents,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
+export const getSavedEvents = async (req, res) => {\n  try {\n    const savedEvents = await SavedEvent.find({ user: req.user.id })\n      .populate({\n        path: \"event\",\n        populate: { path: \"organizer\", select: \"name email\" },\n      })\n      .sort({ savedAt: -1 });\n\n    // Filter out saved events where the event no longer exists or is past\n    const now = new Date().setHours(0, 0, 0, 0);\n    \n    const validSavedEvents = savedEvents.filter(\n      (saved) => saved.event && new Date(saved.event.date) >= now\n    );\n    \n    const pastSavedEvents = savedEvents.filter(\n      (saved) => saved.event && new Date(saved.event.date) < now\n    );\n\n    res.json({\n      success: true,\n      count: validSavedEvents.length,\n      data: {\n        upcoming: validSavedEvents,\n        past: pastSavedEvents,\n      },\n    });\n  } catch (error) {\n    res.status(500).json({\n      success: false,
       message: error.message,
     });
   }
