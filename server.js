@@ -45,7 +45,7 @@ app.use(
   cors({
     origin: (origin, callback) => {
       console.log(`Request from origin: ${origin}`);
-      
+
       // Allow requests with no origin (like mobile apps or Postman)
       if (!origin) return callback(null, true);
 
@@ -83,7 +83,7 @@ app.use("/api/saved", savedEventRoutes);
 
 // Health check endpoint
 app.get("/", (req, res) => {
-  res.json({ 
+  res.json({
     status: "API is running",
     environment: process.env.NODE_ENV,
     allowedOrigins: allowedOrigins,
@@ -92,10 +92,10 @@ app.get("/", (req, res) => {
 
 // API health check
 app.get("/api", (req, res) => {
-  res.json({ 
+  res.json({
     status: "success",
     message: "Event Listing API",
-    version: "1.0.0"
+    version: "1.0.0",
   });
 });
 
