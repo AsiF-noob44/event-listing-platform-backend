@@ -39,8 +39,19 @@ app.use(express.urlencoded({ extended: true }));
 app.use(
   cors({
     origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or Postman)
       if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
+
+      // Check if origin matches any allowed origins (exact match or with/without trailing slash)
+      const isAllowed = allowedOrigins.some((allowedOrigin) => {
+        const normalizedAllowed = allowedOrigin.replace(/\/$/, "");
+        const normalizedOrigin = origin.replace(/\/$/, "");
+        return normalizedAllowed === normalizedOrigin;
+      });
+
+      if (isAllowed) return callback(null, true);
+
+      console.error(`CORS blocked origin: ${origin}`);
       return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
