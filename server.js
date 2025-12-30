@@ -15,6 +15,12 @@ import savedEventRoutes from "./src/routes/savedEventRoutes.js";
 const app = express();
 const PORT = process.env.PORT || 8000;
 
+// Support multiple allowed origins via comma-separated env
+const allowedOrigins = (process.env.CLIENT_URL || "")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 app.use(helmet());
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 
@@ -32,7 +38,11 @@ app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
   })
 );
