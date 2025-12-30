@@ -16,7 +16,7 @@ const app = express();
 const PORT = process.env.PORT || 8000;
 
 // Support multiple allowed origins via comma-separated env
-const allowedOrigins = (process.env.CLIENT_URL || "")
+const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173")
   .split(",")
   .map((o) => o.trim())
   .filter(Boolean);
