@@ -21,7 +21,12 @@ const allowedOrigins = (process.env.CLIENT_URL || "")
   .map((o) => o.trim())
   .filter(Boolean);
 
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+  })
+);
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 
 // Rate limiting to protect auth and general API
@@ -39,6 +44,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use(
   cors({
     origin: (origin, callback) => {
+      console.log(`Request from origin: ${origin}`);
+      
       // Allow requests with no origin (like mobile apps or Postman)
       if (!origin) return callback(null, true);
 
@@ -49,12 +56,20 @@ app.use(
         return normalizedAllowed === normalizedOrigin;
       });
 
-      if (isAllowed) return callback(null, true);
+      if (isAllowed) {
+        console.log(`CORS allowed for: ${origin}`);
+        return callback(null, true);
+      }
 
       console.error(`CORS blocked origin: ${origin}`);
+      console.error(`Allowed origins: ${allowedOrigins.join(", ")}`);
       return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    exposedHeaders: ["Set-Cookie"],
+    maxAge: 86400,
   })
 );
 
@@ -66,8 +81,22 @@ app.use("/api/auth", userRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/saved", savedEventRoutes);
 
+// Health check endpoint
 app.get("/", (req, res) => {
-  res.send("API is running...");
+  res.json({ 
+    status: "API is running",
+    environment: process.env.NODE_ENV,
+    allowedOrigins: allowedOrigins,
+  });
+});
+
+// API health check
+app.get("/api", (req, res) => {
+  res.json({ 
+    status: "success",
+    message: "Event Listing API",
+    version: "1.0.0"
+  });
 });
 
 app.listen(PORT, () => {
