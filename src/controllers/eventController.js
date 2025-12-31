@@ -101,24 +101,23 @@ export const createEvent = async (req, res) => {
   try {
     const { name, description, date, time, location, category } = req.body;
 
-    // Normalize date to ensure consistent UTC interpretation
+    // Parse date components
     const dateParts = date.split("-");
-    const normalizedDate = `${dateParts[0]}-${dateParts[1].padStart(
-      2,
-      "0"
-    )}-${dateParts[2].padStart(2, "0")}`;
+    const year = parseInt(dateParts[0], 10);
+    const month = parseInt(dateParts[1], 10) - 1; // JavaScript months are 0-indexed
+    const day = parseInt(dateParts[2], 10);
 
-    // Combine date and time to create event datetime (ensure UTC)
+    // Parse time components
     const [hours, minutes] = time.split(":").map(Number);
-    const eventDateTime = new Date(
-      `${normalizedDate}T${hours.toString().padStart(2, "0")}:${minutes
-        .toString()
-        .padStart(2, "0")}:00.000`
-    );
+
+    // Create event datetime using explicit constructor (local timezone)
+    const eventDateTime = new Date(year, month, day, hours, minutes, 0, 0);
 
     // Require a practical buffer to avoid near-immediate past events
     const minimumLeadTimeMs = 60 * 60 * 1000; // 60 minutes
-    if (eventDateTime <= new Date(Date.now() + minimumLeadTimeMs)) {
+    const minimumAllowedTime = new Date(Date.now() + minimumLeadTimeMs);
+
+    if (eventDateTime.getTime() <= minimumAllowedTime.getTime()) {
       return res.status(400).json({
         success: false,
         message: "Event must be at least 60 minutes in the future",
@@ -172,26 +171,29 @@ export const updateEvent = async (req, res) => {
     // If updating date or time, validate the combined datetime is in the future
     if (req.body.date || req.body.time) {
       const existingDate = new Date(event.date);
-      const baseDateString = req.body.date
-        ? (() => {
-            const dateParts = req.body.date.split("-");
-            return `${dateParts[0]}-${dateParts[1].padStart(
-              2,
-              "0"
-            )}-${dateParts[2].padStart(2, "0")}`;
-          })()
-        : existingDate.toISOString().split("T")[0];
+
+      let year, month, day;
+      if (req.body.date) {
+        const dateParts = req.body.date.split("-");
+        year = parseInt(dateParts[0], 10);
+        month = parseInt(dateParts[1], 10) - 1; // JavaScript months are 0-indexed
+        day = parseInt(dateParts[2], 10);
+      } else {
+        year = existingDate.getFullYear();
+        month = existingDate.getMonth();
+        day = existingDate.getDate();
+      }
 
       const eventTime = req.body.time || event.time;
       const [hours, minutes] = eventTime.split(":").map(Number);
-      const eventDateTime = new Date(
-        `${baseDateString}T${hours.toString().padStart(2, "0")}:${minutes
-          .toString()
-          .padStart(2, "0")}:00.000`
-      );
+
+      // Create event datetime using explicit constructor (local timezone)
+      const eventDateTime = new Date(year, month, day, hours, minutes, 0, 0);
 
       const minimumLeadTimeMs = 60 * 60 * 1000; // 60 minutes
-      if (eventDateTime <= new Date(Date.now() + minimumLeadTimeMs)) {
+      const minimumAllowedTime = new Date(Date.now() + minimumLeadTimeMs);
+
+      if (eventDateTime.getTime() <= minimumAllowedTime.getTime()) {
         return res.status(400).json({
           success: false,
           message: "Event must be at least 60 minutes in the future",
