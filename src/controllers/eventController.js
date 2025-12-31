@@ -99,7 +99,15 @@ export const getEventById = async (req, res) => {
 // @access  Private
 export const createEvent = async (req, res) => {
   try {
-    const { name, description, date, time, location, category } = req.body;
+    const {
+      name,
+      description,
+      date,
+      time,
+      location,
+      category,
+      timezoneOffset,
+    } = req.body;
 
     // Parse date components
     const dateParts = date.split("-");
@@ -110,8 +118,17 @@ export const createEvent = async (req, res) => {
     // Parse time components
     const [hours, minutes] = time.split(":").map(Number);
 
-    // Create event datetime using explicit constructor (local timezone)
-    const eventDateTime = new Date(year, month, day, hours, minutes, 0, 0);
+    // Create datetime - if timezone offset provided, treat input as user's local time and convert to UTC
+    let eventDateTime;
+    if (typeof timezoneOffset === "number") {
+      // Use Date.UTC and then subtract the user's timezone offset
+      // timezoneOffset is negative for timezones ahead of UTC (e.g., -360 for UTC+6)
+      const utcTime = Date.UTC(year, month, day, hours, minutes, 0, 0);
+      eventDateTime = new Date(utcTime + timezoneOffset * 60 * 1000);
+    } else {
+      // Fallback to local server time
+      eventDateTime = new Date(year, month, day, hours, minutes, 0, 0);
+    }
 
     // Require a practical buffer to avoid near-immediate past events
     const minimumLeadTimeMs = 60 * 60 * 1000; // 60 minutes
@@ -171,6 +188,7 @@ export const updateEvent = async (req, res) => {
     // If updating date or time, validate the combined datetime is in the future
     if (req.body.date || req.body.time) {
       const existingDate = new Date(event.date);
+      const timezoneOffset = req.body.timezoneOffset;
 
       let year, month, day;
       if (req.body.date) {
@@ -187,8 +205,14 @@ export const updateEvent = async (req, res) => {
       const eventTime = req.body.time || event.time;
       const [hours, minutes] = eventTime.split(":").map(Number);
 
-      // Create event datetime using explicit constructor (local timezone)
-      const eventDateTime = new Date(year, month, day, hours, minutes, 0, 0);
+      // Create datetime - if timezone offset provided, treat input as user's local time and convert to UTC
+      let eventDateTime;
+      if (typeof timezoneOffset === "number") {
+        const utcTime = Date.UTC(year, month, day, hours, minutes, 0, 0);
+        eventDateTime = new Date(utcTime + timezoneOffset * 60 * 1000);
+      } else {
+        eventDateTime = new Date(year, month, day, hours, minutes, 0, 0);
+      }
 
       const minimumLeadTimeMs = 60 * 60 * 1000; // 60 minutes
       const minimumAllowedTime = new Date(Date.now() + minimumLeadTimeMs);
