@@ -12,6 +12,7 @@ export const getEventCategories = () => {
 export const getAllEvents = async (req, res) => {
   try {
     const { category, location, search, includePast } = req.query;
+    const now = new Date();
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.min(
       Math.max(parseInt(req.query.limit, 10) || 10, 1),
@@ -37,7 +38,7 @@ export const getAllEvents = async (req, res) => {
 
     // Exclude past events by default
     if (includePast !== "true") {
-      query.date = { $gte: new Date().setHours(0, 0, 0, 0) };
+      query.date = { $gte: now };
     }
 
     const total = await Event.countDocuments(query);
@@ -115,18 +116,19 @@ export const createEvent = async (req, res) => {
         .padStart(2, "0")}:00.000Z`
     );
 
-    // Check if event is in the future
-    if (eventDateTime <= new Date()) {
+    // Require a practical buffer to avoid near-immediate past events
+    const minimumLeadTimeMs = 60 * 60 * 1000; // 60 minutes
+    if (eventDateTime <= new Date(Date.now() + minimumLeadTimeMs)) {
       return res.status(400).json({
         success: false,
-        message: "Event must be scheduled in the future",
+        message: "Event must be at least 5 minutes in the future",
       });
     }
 
     const event = await Event.create({
       name,
       description,
-      date: normalizedDate, // Store normalized date
+      date: eventDateTime, // Store full UTC datetime for accurate comparisons
       time,
       location,
       category,
@@ -169,40 +171,35 @@ export const updateEvent = async (req, res) => {
 
     // If updating date or time, validate the combined datetime is in the future
     if (req.body.date || req.body.time) {
-      let normalizedDate, eventTime;
+      const existingDate = new Date(event.date);
+      const baseDateString = req.body.date
+        ? (() => {
+            const dateParts = req.body.date.split("-");
+            return `${dateParts[0]}-${dateParts[1].padStart(
+              2,
+              "0"
+            )}-${dateParts[2].padStart(2, "0")}`;
+          })()
+        : existingDate.toISOString().split("T")[0];
 
-      if (req.body.date) {
-        // Normalize the new date
-        const dateParts = req.body.date.split("-");
-        normalizedDate = `${dateParts[0]}-${dateParts[1].padStart(
-          2,
-          "0"
-        )}-${dateParts[2].padStart(2, "0")}`;
-        eventTime = req.body.time || event.time;
-      } else {
-        // Use existing normalized date
-        normalizedDate = event.date;
-        eventTime = req.body.time;
-      }
-
+      const eventTime = req.body.time || event.time;
       const [hours, minutes] = eventTime.split(":").map(Number);
       const eventDateTime = new Date(
-        `${normalizedDate}T${hours.toString().padStart(2, "0")}:${minutes
+        `${baseDateString}T${hours.toString().padStart(2, "0")}:${minutes
           .toString()
           .padStart(2, "0")}:00.000Z`
       );
 
-      if (eventDateTime <= new Date()) {
+      const minimumLeadTimeMs = 60 * 60 * 1000; // 60 minutes
+      if (eventDateTime <= new Date(Date.now() + minimumLeadTimeMs)) {
         return res.status(400).json({
           success: false,
-          message: "Event must be scheduled in the future",
+          message: "Event must be at least 5 minutes in the future",
         });
       }
 
-      // Normalize date in the request body before updating
-      if (req.body.date) {
-        req.body.date = normalizedDate;
-      }
+      // Persist full datetime for accurate future/past checks
+      req.body.date = eventDateTime;
     }
 
     event = await Event.findByIdAndUpdate(req.params.id, req.body, {
@@ -267,7 +264,7 @@ export const getUserEvents = async (req, res) => {
       date: 1,
     });
 
-    const now = new Date().setHours(0, 0, 0, 0);
+    const now = new Date();
 
     const upcomingEvents = allEvents.filter(
       (event) => new Date(event.date) >= now
@@ -314,7 +311,7 @@ export const getCategories = async (_req, res) => {
 // @access  Private
 export const getUserStats = async (req, res) => {
   try {
-    const now = new Date().setHours(0, 0, 0, 0);
+    const now = new Date();
 
     const [totalCreated, upcomingCreated, pastCreated, savedCount] =
       await Promise.all([
