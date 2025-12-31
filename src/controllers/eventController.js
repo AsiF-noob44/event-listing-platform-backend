@@ -137,7 +137,8 @@ export const createEvent = async (req, res) => {
     if (eventDateTime.getTime() <= minimumAllowedTime.getTime()) {
       return res.status(400).json({
         success: false,
-        message: "Event must be at least 60 minutes in the future",
+        message:
+          "Event must be at least 60 minutes in the future from present time",
       });
     }
 
