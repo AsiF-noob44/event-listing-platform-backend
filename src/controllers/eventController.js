@@ -113,7 +113,7 @@ export const createEvent = async (req, res) => {
     const eventDateTime = new Date(
       `${normalizedDate}T${hours.toString().padStart(2, "0")}:${minutes
         .toString()
-        .padStart(2, "0")}:00.000Z`
+        .padStart(2, "0")}:00.000`
     );
 
     // Require a practical buffer to avoid near-immediate past events
@@ -121,7 +121,7 @@ export const createEvent = async (req, res) => {
     if (eventDateTime <= new Date(Date.now() + minimumLeadTimeMs)) {
       return res.status(400).json({
         success: false,
-        message: "Event must be at least 5 minutes in the future",
+        message: "Event must be at least 60 minutes in the future",
       });
     }
 
@@ -187,14 +187,14 @@ export const updateEvent = async (req, res) => {
       const eventDateTime = new Date(
         `${baseDateString}T${hours.toString().padStart(2, "0")}:${minutes
           .toString()
-          .padStart(2, "0")}:00.000Z`
+          .padStart(2, "0")}:00.000`
       );
 
       const minimumLeadTimeMs = 60 * 60 * 1000; // 60 minutes
       if (eventDateTime <= new Date(Date.now() + minimumLeadTimeMs)) {
         return res.status(400).json({
           success: false,
-          message: "Event must be at least 5 minutes in the future",
+          message: "Event must be at least 60 minutes in the future",
         });
       }
 
